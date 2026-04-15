@@ -28,3 +28,31 @@ def test_empty_json():
     doc_id, chunks = adapter.extract({"name": "empty.pdf"})
     assert doc_id == "empty.pdf"
     assert len(chunks) == 0
+
+
+def test_chunked_format():
+    """Docling-serve chunking endpoint returns a 'chunks' key instead of 'texts'."""
+    adapter = DoclingAdapter()
+    raw = {
+        "chunks": [
+            {
+                "text": "Premier paragraphe du document.",
+                "block_type": None,
+                "page_numbers": [1],
+                "doc_items": ["#/texts/0", "#/texts/1"],
+            },
+            {
+                "text": "| Col A | Col B |\n|-------|-------|\n| 1     | 2     |",
+                "block_type": None,
+                "page_numbers": [2],
+                "doc_items": ["#/tables/0"],
+            },
+        ]
+    }
+    doc_id, chunks = adapter.extract(raw)
+    assert doc_id == "unknown"
+    assert len(chunks) == 2
+    assert chunks[0].text == "Premier paragraphe du document."
+    assert chunks[0].ref == "#/texts/0"
+    assert chunks[0].page_no == 1
+    assert chunks[1].page_no == 2

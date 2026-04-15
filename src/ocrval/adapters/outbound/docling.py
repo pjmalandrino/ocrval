@@ -4,9 +4,39 @@ from ocrval.domain.models import ChunkInput
 
 
 class DoclingAdapter:
-    """Converts Docling JSON (DoclingDocument) into ChunkInputs."""
+    """Converts Docling JSON (DoclingDocument or chunking response) into ChunkInputs."""
 
     def extract(self, raw: dict[str, Any]) -> tuple[str, list[ChunkInput]]:
+        # Auto-detect format: chunking response vs DoclingDocument
+        if "chunks" in raw and "texts" not in raw:
+            return self._extract_chunked(raw)
+        return self._extract_document(raw)
+
+    def _extract_chunked(self, raw: dict[str, Any]) -> tuple[str, list[ChunkInput]]:
+        """Extract from docling-serve chunking endpoint response (key: 'chunks')."""
+        document_id = raw.get("name", "unknown")
+        chunks: list[ChunkInput] = []
+
+        for i, item in enumerate(raw.get("chunks", [])):
+            text = item.get("text", "")
+
+            # Use first doc_items ref or generate one
+            doc_items = item.get("doc_items", [])
+            ref = doc_items[0] if doc_items else f"#/chunks/{i}"
+
+            label = item.get("block_type") or "chunk"
+
+            page_no = None
+            page_numbers = item.get("page_numbers", [])
+            if page_numbers:
+                page_no = page_numbers[0]
+
+            chunks.append(ChunkInput(ref=ref, label=label, page_no=page_no, text=text))
+
+        return document_id, chunks
+
+    def _extract_document(self, raw: dict[str, Any]) -> tuple[str, list[ChunkInput]]:
+        """Extract from DoclingDocument format (keys: 'texts', 'tables')."""
         document_id = raw.get("name", "unknown")
         chunks: list[ChunkInput] = []
 
