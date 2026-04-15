@@ -15,13 +15,16 @@ from ocrval.scorers.short_chunk import ShortChunkScorer
 from ocrval.scorers.special_char import SpecialCharScorer
 
 
-def _build_service() -> ValidationService:
+def _build_service(
+    *,
+    short_chunk_min_words: int | None = None,
+) -> ValidationService:
     dictionary = load_dictionary(lang=settings.lang, custom_words=settings.custom_words)
 
     pipeline = ScoringPipeline()
     pipeline.register(SpecialCharScorer(threshold=settings.special_char_threshold))
     pipeline.register(DictionaryScorer(dictionary=dictionary, threshold=settings.dictionary_oov_threshold))
-    pipeline.register(ShortChunkScorer(min_words=settings.short_chunk_min_words))
+    pipeline.register(ShortChunkScorer(min_words=short_chunk_min_words or settings.short_chunk_min_words))
     pipeline.register(RepetitionScorer(min_occurrences=settings.repetition_min_occurrences))
 
     weights = {
@@ -42,7 +45,7 @@ def _build_service() -> ValidationService:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     service = _build_service()
-    init_router(service)
+    init_router(service, build_service_fn=_build_service)
     yield
 
 

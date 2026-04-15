@@ -1,26 +1,41 @@
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from ocrval.adapters.inbound.api.schemas import ChunkScoreResponse, DocumentScoreResponse
 from ocrval.adapters.outbound.docling import DoclingAdapter
+from ocrval.config import settings
 from ocrval.domain.models import Bucket
 
 router = APIRouter(prefix="/v1")
 
-# Injected at app startup
-_validation_service = None
+# Injected at app startup — used as default; rebuilt per-request when overrides are provided
+_default_service = None
+_build_service_fn = None
 
 
-def init_router(validation_service):
-    global _validation_service
-    _validation_service = validation_service
+def init_router(validation_service, build_service_fn=None):
+    global _default_service, _build_service_fn
+    _default_service = validation_service
+    _build_service_fn = build_service_fn
 
 
 @router.post("/validate", response_model=DocumentScoreResponse)
-def validate_document(body: dict[str, Any]) -> DocumentScoreResponse:
-    if _validation_service is None:
+def validate_document(
+    body: dict[str, Any],
+    short_chunk_min_words: Optional[int] = Query(None, ge=1, description="Min word count for short_chunk scorer"),
+) -> DocumentScoreResponse:
+    if _default_service is None:
         raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # If overrides provided, rebuild service; otherwise use default
+    has_overrides = short_chunk_min_words is not None
+    if has_overrides and _build_service_fn:
+        service = _build_service_fn(
+            short_chunk_min_words=short_chunk_min_words or settings.short_chunk_min_words,
+        )
+    else:
+        service = _default_service
 
     adapter = DoclingAdapter()
     try:
@@ -28,7 +43,7 @@ def validate_document(body: dict[str, Any]) -> DocumentScoreResponse:
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Invalid Docling JSON: {e}")
 
-    result = _validation_service.validate(document_id, chunks)
+    result = service.validate(document_id, chunks)
 
     return DocumentScoreResponse(
         document_id=result.document_id,

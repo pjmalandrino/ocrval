@@ -6,6 +6,7 @@ const inputMode = ref('json')
 const result = ref(null)
 const loading = ref(false)
 const error = ref(null)
+const shortChunkMinWords = ref(3)
 
 const sampleJson = JSON.stringify({
   name: "exemple_facture.pdf",
@@ -86,7 +87,12 @@ async function validate() {
 
   try {
     const payload = buildPayload()
-    const resp = await fetch('/v1/validate', {
+    const params = new URLSearchParams()
+    if (shortChunkMinWords.value !== 3) {
+      params.set('short_chunk_min_words', shortChunkMinWords.value)
+    }
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    const resp = await fetch(`/v1/validate${qs}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -143,6 +149,22 @@ function scoreBarWidth(score) {
         : 'Colle ici le Markdown extrait par Docling...'"
       spellcheck="false"
     ></textarea>
+
+    <div class="settings-panel">
+      <label class="setting">
+        <span class="setting-label">Short chunk min words</span>
+        <div class="setting-control">
+          <input
+            type="range"
+            v-model.number="shortChunkMinWords"
+            min="1"
+            max="20"
+            step="1"
+          />
+          <span class="setting-value">{{ shortChunkMinWords }}</span>
+        </div>
+      </label>
+    </div>
 
     <button
       class="validate-btn"
@@ -305,6 +327,40 @@ h1 {
 }
 .editor:focus {
   border-color: var(--accent);
+}
+
+.settings-panel {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.setting {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.setting-label {
+  font-size: 0.82rem;
+  font-family: var(--mono);
+  color: var(--text-dim);
+}
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.setting-control input[type="range"] {
+  width: 120px;
+  accent-color: var(--accent);
+}
+.setting-value {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 1.5rem;
+  text-align: right;
 }
 
 .validate-btn {
