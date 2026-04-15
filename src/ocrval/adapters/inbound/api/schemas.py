@@ -10,6 +10,7 @@ class ChunkScoreResponse(BaseModel):
     label: str
     page_no: Optional[int] = None
     text_preview: str
+    text_full: str = ""
     scores: dict[str, HeuristicResult]
     chunk_score: float
     bucket: Bucket

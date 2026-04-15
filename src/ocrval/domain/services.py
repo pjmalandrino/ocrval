@@ -49,6 +49,7 @@ class ValidationService:
                     label=cr.chunk.label,
                     page_no=cr.chunk.page_no,
                     text_preview=preview,
+                    text_full=cr.chunk.text,
                     scores=cr.heuristics,
                     chunk_score=round(chunk_score, 4),
                     bucket=bucket,

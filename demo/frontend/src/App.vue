@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 
 const input = ref('')
 const inputMode = ref('json')
@@ -8,6 +8,7 @@ const loading = ref(false)
 const error = ref(null)
 const shortChunkMinWords = ref(3)
 const pass2Enabled = ref(false)
+const expandedChunks = reactive(new Set())
 
 const sampleJson = JSON.stringify({
   name: "exemple_facture.pdf",
@@ -105,11 +106,20 @@ async function validate() {
       const detail = await resp.json().catch(() => ({}))
       throw new Error(detail.detail || `HTTP ${resp.status}`)
     }
+    expandedChunks.clear()
     result.value = await resp.json()
   } catch (e) {
     error.value = e.message
   } finally {
     loading.value = false
+  }
+}
+
+function toggleChunk(ref) {
+  if (expandedChunks.has(ref)) {
+    expandedChunks.delete(ref)
+  } else {
+    expandedChunks.add(ref)
   }
 }
 
@@ -238,7 +248,19 @@ function scoreBarWidth(score) {
         </div>
       </div>
 
-      <p class="chunk-preview">{{ chunk.text_preview || '(vide)' }}</p>
+      <div class="chunk-text-section">
+        <p class="chunk-preview">
+          {{ expandedChunks.has(chunk.chunk_ref) ? chunk.text_full : chunk.text_preview || '(vide)' }}
+        </p>
+        <button
+          v-if="chunk.text_full && chunk.text_full.length > 80"
+          class="expand-btn"
+          @click="toggleChunk(chunk.chunk_ref)"
+        >
+          <span class="expand-arrow" :class="{ expanded: expandedChunks.has(chunk.chunk_ref) }">&#9654;</span>
+          {{ expandedChunks.has(chunk.chunk_ref) ? 'Replier' : 'Voir tout' }}
+        </button>
+      </div>
 
       <div class="heuristics">
         <div
@@ -569,12 +591,40 @@ h1 {
   font-size: 0.95rem;
 }
 
+.chunk-text-section {
+  margin-bottom: 0.75rem;
+}
 .chunk-preview {
   font-size: 0.82rem;
   color: var(--text-dim);
   font-style: italic;
-  margin-bottom: 0.75rem;
   word-break: break-word;
+  white-space: pre-wrap;
+  margin: 0;
+}
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: var(--mono);
+}
+.expand-btn:hover {
+  text-decoration: underline;
+}
+.expand-arrow {
+  display: inline-block;
+  font-size: 0.6rem;
+  transition: transform 0.2s;
+}
+.expand-arrow.expanded {
+  transform: rotate(90deg);
 }
 
 .heuristics {

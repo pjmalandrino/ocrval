@@ -60,6 +60,7 @@ def validate_document(
                 label=cs.label,
                 page_no=cs.page_no,
                 text_preview=cs.text_preview,
+                text_full=cs.text_full,
                 scores=cs.scores,
                 chunk_score=cs.chunk_score,
                 bucket=cs.bucket,
