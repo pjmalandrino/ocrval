@@ -13,11 +13,18 @@ pip install ocrval
 ```python
 from ocrval import validate_document, validate_text
 
-# From Docling JSON
-result = validate_document(docling_json, dictionary_path="fr_wordlist.txt")
+# From Docling JSON — dictionary auto-downloaded and cached
+result = validate_document(docling_json, lang="fr")
+
+# With domain-specific words
+result = validate_document(
+    docling_json,
+    lang="fr",
+    custom_words=["bornier", "domotique"],
+)
 
 # From plain text chunks
-result = validate_text(["Chunk 1 text", "Chunk 2 text"])
+result = validate_text(["Chunk 1 text", "Chunk 2 text"], lang="fr")
 
 print(result.overall_score)  # 0.82
 print(result.bucket)         # "good"
