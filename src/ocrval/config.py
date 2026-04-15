@@ -29,7 +29,8 @@ class Settings(BaseSettings):
     weights: ScorerWeights = ScorerWeights()
 
     # Dictionary
-    dictionary_path: str = "data/fr_wordlist.txt"
+    lang: str | None = "fr"
+    custom_words: list[str] | None = None
 
     # Pass 2
     pass2_enabled: bool = False

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from ocrval.adapters.inbound.api.router import init_router, router
-from ocrval.adapters.outbound.dictionary import FileDictionaryLoader
+from ocrval.adapters.outbound.dictionary import load_dictionary
 from ocrval.config import settings
 from ocrval.domain.services import ValidationService
 from ocrval.pipeline.registry import ScoringPipeline
@@ -16,7 +16,7 @@ from ocrval.scorers.special_char import SpecialCharScorer
 
 
 def _build_service() -> ValidationService:
-    dictionary = FileDictionaryLoader().load(settings.dictionary_path)
+    dictionary = load_dictionary(lang=settings.lang, custom_words=settings.custom_words)
 
     pipeline = ScoringPipeline()
     pipeline.register(SpecialCharScorer(threshold=settings.special_char_threshold))

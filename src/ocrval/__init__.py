@@ -1,6 +1,6 @@
 """ocrval — OCR output quality validation."""
 
-from ocrval.adapters.outbound.dictionary import FileDictionaryLoader
+from ocrval.adapters.outbound.dictionary import FileDictionaryLoader, load_dictionary
 from ocrval.adapters.outbound.docling import DoclingAdapter
 from ocrval.adapters.outbound.generic import GenericTextAdapter
 from ocrval.domain.models import Bucket, ChunkInput, DocumentScoreResult, HeuristicResult
@@ -17,7 +17,8 @@ __version__ = "0.1.0"
 def validate_document(
     docling_json: dict,
     *,
-    dictionary_path: str | None = None,
+    lang: str | None = None,
+    custom_words: list[str] | None = None,
     good_threshold: float = 0.75,
     bad_threshold: float = 0.40,
 ) -> DocumentScoreResult:
@@ -25,7 +26,8 @@ def validate_document(
 
     Args:
         docling_json: Raw Docling DoclingDocument dict.
-        dictionary_path: Path to a word list file (one word per line).
+        lang: Language code (e.g. "fr"). Downloads and caches the dictionary on first use.
+        custom_words: Additional domain-specific words to include in the dictionary.
         good_threshold: Score above which a chunk is "good".
         bad_threshold: Score below which a chunk is "bad".
 
@@ -34,14 +36,15 @@ def validate_document(
     """
     adapter = DoclingAdapter()
     doc_id, chunks = adapter.extract(docling_json)
-    return _run_validation(doc_id, chunks, dictionary_path, good_threshold, bad_threshold)
+    return _run_validation(doc_id, chunks, lang, custom_words, good_threshold, bad_threshold)
 
 
 def validate_text(
     texts: list[str],
     *,
     document_id: str = "document",
-    dictionary_path: str | None = None,
+    lang: str | None = None,
+    custom_words: list[str] | None = None,
     good_threshold: float = 0.75,
     bad_threshold: float = 0.40,
 ) -> DocumentScoreResult:
@@ -50,7 +53,8 @@ def validate_text(
     Args:
         texts: List of text strings to validate.
         document_id: Optional document identifier.
-        dictionary_path: Path to a word list file (one word per line).
+        lang: Language code (e.g. "fr"). Downloads and caches the dictionary on first use.
+        custom_words: Additional domain-specific words to include in the dictionary.
         good_threshold: Score above which a chunk is "good".
         bad_threshold: Score below which a chunk is "bad".
 
@@ -59,19 +63,18 @@ def validate_text(
     """
     adapter = GenericTextAdapter()
     doc_id, chunks = adapter.extract(texts, document_id=document_id)
-    return _run_validation(doc_id, chunks, dictionary_path, good_threshold, bad_threshold)
+    return _run_validation(doc_id, chunks, lang, custom_words, good_threshold, bad_threshold)
 
 
 def _run_validation(
     doc_id: str,
     chunks: list[ChunkInput],
-    dictionary_path: str | None,
+    lang: str | None,
+    custom_words: list[str] | None,
     good_threshold: float,
     bad_threshold: float,
 ) -> DocumentScoreResult:
-    dictionary: set[str] = set()
-    if dictionary_path:
-        dictionary = FileDictionaryLoader().load(dictionary_path)
+    dictionary = load_dictionary(lang=lang, custom_words=custom_words)
 
     pipeline = ScoringPipeline()
     pipeline.register(SpecialCharScorer())
@@ -102,6 +105,7 @@ __all__ = [
     "__version__",
     "validate_document",
     "validate_text",
+    "load_dictionary",
     "Bucket",
     "ChunkInput",
     "DocumentScoreResult",
