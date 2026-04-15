@@ -71,4 +71,12 @@ def generate_flags(chunk_results: list[ChunkResult], weights: dict[str, float]) 
     for page in sorted(bad_pages):
         flags.append(f"High special char ratio on page {page}")
 
+    high_ppl_count = sum(
+        1
+        for cr in chunk_results
+        if "perplexity" in cr.heuristics and cr.heuristics["perplexity"].score < 0.3
+    )
+    if high_ppl_count > 0:
+        flags.append(f"{high_ppl_count} chunk(s) with high perplexity (linguistically incoherent)")
+
     return flags

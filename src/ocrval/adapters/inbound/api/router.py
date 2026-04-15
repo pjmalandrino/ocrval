@@ -24,16 +24,21 @@ def init_router(validation_service, build_service_fn=None):
 def validate_document(
     body: dict[str, Any],
     short_chunk_min_words: Optional[int] = Query(None, ge=1, description="Min word count for short_chunk scorer"),
+    pass2: Optional[bool] = Query(None, description="Enable perplexity scoring (requires [llm] extra)"),
 ) -> DocumentScoreResponse:
     if _default_service is None:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     # If overrides provided, rebuild service; otherwise use default
-    has_overrides = short_chunk_min_words is not None
+    has_overrides = short_chunk_min_words is not None or pass2 is not None
     if has_overrides and _build_service_fn:
-        service = _build_service_fn(
-            short_chunk_min_words=short_chunk_min_words or settings.short_chunk_min_words,
-        )
+        try:
+            service = _build_service_fn(
+                short_chunk_min_words=short_chunk_min_words or settings.short_chunk_min_words,
+                pass2_enabled=pass2,
+            )
+        except ImportError as e:
+            raise HTTPException(status_code=422, detail=str(e))
     else:
         service = _default_service
 

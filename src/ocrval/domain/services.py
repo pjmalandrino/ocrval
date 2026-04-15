@@ -66,7 +66,7 @@ class ValidationService:
             chunk_scores=chunk_responses,
             flags=flags,
             scorer_versions={
-                "pass": 1,
+                "pass": 2 if "perplexity" in self._pipeline.scorer_names else 1,
                 "scorers": self._pipeline.scorer_names,
             },
         )

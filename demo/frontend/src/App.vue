@@ -7,6 +7,7 @@ const result = ref(null)
 const loading = ref(false)
 const error = ref(null)
 const shortChunkMinWords = ref(3)
+const pass2Enabled = ref(false)
 
 const sampleJson = JSON.stringify({
   name: "exemple_facture.pdf",
@@ -91,6 +92,9 @@ async function validate() {
     if (shortChunkMinWords.value !== 3) {
       params.set('short_chunk_min_words', shortChunkMinWords.value)
     }
+    if (pass2Enabled.value) {
+      params.set('pass2', 'true')
+    }
     const qs = params.toString() ? `?${params.toString()}` : ''
     const resp = await fetch(`/v1/validate${qs}`, {
       method: 'POST',
@@ -162,6 +166,15 @@ function scoreBarWidth(score) {
             step="1"
           />
           <span class="setting-value">{{ shortChunkMinWords }}</span>
+        </div>
+      </label>
+      <label class="setting">
+        <span class="setting-label">Pass 2 — perplexity (CamemBERT)</span>
+        <div class="setting-control">
+          <label class="toggle">
+            <input type="checkbox" v-model="pass2Enabled" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </label>
     </div>
@@ -361,6 +374,42 @@ h1 {
   font-size: 0.85rem;
   min-width: 1.5rem;
   text-align: right;
+}
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+}
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--border);
+  border-radius: 22px;
+  transition: background 0.2s;
+}
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle input:checked + .toggle-slider {
+  background: var(--accent);
+}
+.toggle input:checked + .toggle-slider::before {
+  transform: translateX(18px);
 }
 
 .validate-btn {

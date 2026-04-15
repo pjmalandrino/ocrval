@@ -18,6 +18,7 @@ from ocrval.scorers.special_char import SpecialCharScorer
 def _build_service(
     *,
     short_chunk_min_words: int | None = None,
+    pass2_enabled: bool | None = None,
 ) -> ValidationService:
     dictionary = load_dictionary(lang=settings.lang, custom_words=settings.custom_words)
 
@@ -33,6 +34,17 @@ def _build_service(
         "short_chunk": settings.weights.short_chunk,
         "line_repetition": settings.weights.line_repetition,
     }
+
+    use_pass2 = pass2_enabled if pass2_enabled is not None else settings.pass2_enabled
+    if use_pass2:
+        from ocrval.scorers.perplexity import PerplexityScorer
+
+        pipeline.register(PerplexityScorer(
+            model_name=settings.perplexity_model,
+            ppl_ceiling=settings.perplexity_ceiling,
+            ppl_floor=settings.perplexity_floor,
+        ))
+        weights["perplexity"] = settings.weights.perplexity
 
     return ValidationService(
         pipeline=pipeline,

@@ -7,6 +7,7 @@ class ScorerWeights(BaseModel):
     dictionary_ratio: float = 0.35
     short_chunk: float = 0.20
     line_repetition: float = 0.20
+    perplexity: float = 0.30
 
 
 class Settings(BaseSettings):
@@ -32,8 +33,11 @@ class Settings(BaseSettings):
     lang: str | None = "fr"
     custom_words: list[str] | None = None
 
-    # Pass 2
+    # Pass 2 — perplexity (requires [llm] extra)
     pass2_enabled: bool = False
+    perplexity_model: str = "camembert-base"
+    perplexity_ceiling: float = 100.0
+    perplexity_floor: float = 10.0
 
 
 settings = Settings()

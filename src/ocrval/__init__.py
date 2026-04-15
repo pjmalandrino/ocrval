@@ -22,6 +22,7 @@ def validate_document(
     good_threshold: float = 0.75,
     bad_threshold: float = 0.40,
     short_chunk_min_words: int = 3,
+    pass2_enabled: bool = False,
 ) -> DocumentScoreResult:
     """Validate a Docling JSON document in one call.
 
@@ -32,13 +33,17 @@ def validate_document(
         good_threshold: Score above which a chunk is "good".
         bad_threshold: Score below which a chunk is "bad".
         short_chunk_min_words: Minimum word count before a chunk is flagged as short.
+        pass2_enabled: Enable perplexity scoring (requires ``pip install ocrval[llm]``).
 
     Returns:
         DocumentScoreResult with overall score, bucket, per-chunk details, and flags.
     """
     adapter = DoclingAdapter()
     doc_id, chunks = adapter.extract(docling_json)
-    return _run_validation(doc_id, chunks, lang, custom_words, good_threshold, bad_threshold, short_chunk_min_words)
+    return _run_validation(
+        doc_id, chunks, lang, custom_words,
+        good_threshold, bad_threshold, short_chunk_min_words, pass2_enabled,
+    )
 
 
 def validate_text(
@@ -50,6 +55,7 @@ def validate_text(
     good_threshold: float = 0.75,
     bad_threshold: float = 0.40,
     short_chunk_min_words: int = 3,
+    pass2_enabled: bool = False,
 ) -> DocumentScoreResult:
     """Validate a list of plain text chunks.
 
@@ -61,13 +67,17 @@ def validate_text(
         good_threshold: Score above which a chunk is "good".
         bad_threshold: Score below which a chunk is "bad".
         short_chunk_min_words: Minimum word count before a chunk is flagged as short.
+        pass2_enabled: Enable perplexity scoring (requires ``pip install ocrval[llm]``).
 
     Returns:
         DocumentScoreResult with overall score, bucket, per-chunk details, and flags.
     """
     adapter = GenericTextAdapter()
     doc_id, chunks = adapter.extract(texts, document_id=document_id)
-    return _run_validation(doc_id, chunks, lang, custom_words, good_threshold, bad_threshold, short_chunk_min_words)
+    return _run_validation(
+        doc_id, chunks, lang, custom_words,
+        good_threshold, bad_threshold, short_chunk_min_words, pass2_enabled,
+    )
 
 
 def _run_validation(
@@ -78,6 +88,7 @@ def _run_validation(
     good_threshold: float,
     bad_threshold: float,
     short_chunk_min_words: int = 3,
+    pass2_enabled: bool = False,
 ) -> DocumentScoreResult:
     dictionary = load_dictionary(lang=lang, custom_words=custom_words)
 
@@ -96,6 +107,12 @@ def _run_validation(
         "short_chunk": 0.20,
         "line_repetition": 0.20,
     }
+
+    if pass2_enabled:
+        from ocrval.scorers.perplexity import PerplexityScorer
+
+        pipeline.register(PerplexityScorer())
+        weights["perplexity"] = 0.30
 
     service = ValidationService(
         pipeline=pipeline,
