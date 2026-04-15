@@ -23,7 +23,7 @@ def _make_scorer(mock_lmppl, **kwargs):
 
 
 def test_clean_text_low_ppl(mock_lmppl, good_chunk):
-    mock_lmppl.get_perplexity.return_value = 15.0
+    mock_lmppl.get_perplexity.return_value = [15.0]
     scorer = _make_scorer(mock_lmppl)
     result = scorer.score(good_chunk)
     assert result.score > 0.9
@@ -31,7 +31,7 @@ def test_clean_text_low_ppl(mock_lmppl, good_chunk):
 
 
 def test_garbage_text_high_ppl(mock_lmppl, bad_chunk):
-    mock_lmppl.get_perplexity.return_value = 120.0
+    mock_lmppl.get_perplexity.return_value = [120.0]
     scorer = _make_scorer(mock_lmppl)
     result = scorer.score(bad_chunk)
     assert result.score == 0.0
@@ -55,14 +55,14 @@ def test_short_text_skipped(mock_lmppl):
 
 
 def test_normalization_midpoint(mock_lmppl, good_chunk):
-    mock_lmppl.get_perplexity.return_value = 55.0
+    mock_lmppl.get_perplexity.return_value = [55.0]
     scorer = _make_scorer(mock_lmppl, ppl_floor=10.0, ppl_ceiling=100.0)
     result = scorer.score(good_chunk)
     assert abs(result.score - 0.5) < 0.01
 
 
 def test_normalization_floor(mock_lmppl, good_chunk):
-    mock_lmppl.get_perplexity.return_value = 5.0
+    mock_lmppl.get_perplexity.return_value = [5.0]
     scorer = _make_scorer(mock_lmppl, ppl_floor=10.0, ppl_ceiling=100.0)
     result = scorer.score(good_chunk)
     assert result.score == 1.0

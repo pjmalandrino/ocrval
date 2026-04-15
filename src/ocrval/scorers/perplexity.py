@@ -39,7 +39,7 @@ class PerplexityScorer:
         if not text or len(text.split()) < 3:
             return HeuristicResult(value=None, score=1.0)
 
-        ppl = self._model.get_perplexity(text)
+        ppl = self._model.get_perplexity([text])[0]
         normalized = self._normalize(ppl)
         return HeuristicResult(value=round(ppl, 2), score=round(normalized, 4))
 
