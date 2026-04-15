@@ -97,9 +97,7 @@ def _run_validation(
     pipeline.register(DictionaryScorer(dictionary=dictionary))
     pipeline.register(ShortChunkScorer(min_words=short_chunk_min_words))
 
-    repetition_scorer = RepetitionScorer()
-    repetition_scorer.prepare(chunks)
-    pipeline.register(repetition_scorer)
+    pipeline.register(RepetitionScorer())
 
     weights = {
         "special_char_ratio": 0.25,
