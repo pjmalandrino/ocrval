@@ -5,6 +5,12 @@ from ocrval.domain.models import ChunkInput, HeuristicResult
 
 logger = logging.getLogger(__name__)
 
+# Max tokens to score per chunk (truncate beyond this for speed)
+_MAX_SCORE_TOKENS = 128
+
+# How many masked variants to batch together in one forward pass
+_BATCH_SIZE = 32
+
 
 class PerplexityScorer:
     """Pass 2 scorer — evaluates linguistic coherence via masked-LM pseudo-perplexity.
@@ -12,6 +18,10 @@ class PerplexityScorer:
     Computes pseudo-perplexity by masking each token one at a time and averaging
     the negative log-likelihoods. Uses CamemBERT (or any HuggingFace MLM) directly
     via ``transformers``.
+
+    Optimized with:
+    - Token truncation (first 128 tokens only — enough to assess quality)
+    - Batched forward passes (32 masked variants per batch)
 
     Requires the [llm] extra: ``pip install ocrval[llm]``
     """
@@ -53,41 +63,52 @@ class PerplexityScorer:
         return HeuristicResult(value=round(ppl, 2), score=round(normalized, 4))
 
     def _compute_pseudo_ppl(self, text: str) -> float:
-        """Compute pseudo-perplexity by masking each token one at a time.
+        """Compute pseudo-perplexity with batched masked forward passes.
 
-        For each non-special token, mask it, run the model, and record
-        the log-probability of the original token. PPL = exp(-avg_log_prob).
+        1. Tokenize and truncate to _MAX_SCORE_TOKENS
+        2. Build all masked variants (one per non-special token)
+        3. Batch them in groups of _BATCH_SIZE for efficient inference
+        4. Collect log-probs → PPL = exp(-avg_log_prob)
         """
         torch = self._torch
         tokenizer = self._tokenizer
         model = self._model
 
-        encoding = tokenizer(text, return_tensors="pt", truncation=True, max_length=512)
-        input_ids = encoding["input_ids"].squeeze()  # shape: (seq_len,)
+        encoding = tokenizer(
+            text, return_tensors="pt", truncation=True, max_length=_MAX_SCORE_TOKENS,
+        )
+        input_ids = encoding["input_ids"].squeeze()  # (seq_len,)
+        seq_len = len(input_ids)
 
         # Identify maskable positions (skip special tokens like <s>, </s>)
         special_ids = set(tokenizer.all_special_ids)
-        mask_positions = [i for i in range(len(input_ids)) if input_ids[i].item() not in special_ids]
+        mask_positions = [i for i in range(seq_len) if input_ids[i].item() not in special_ids]
 
         if not mask_positions:
             return 0.0
 
+        # Build all masked variants at once: (N, seq_len)
+        original_ids = [input_ids[pos].item() for pos in mask_positions]
+        all_masked = input_ids.unsqueeze(0).expand(len(mask_positions), -1).clone()
+        for idx, pos in enumerate(mask_positions):
+            all_masked[idx, pos] = tokenizer.mask_token_id
+
+        # Batched forward passes
         log_probs = []
-
         with torch.no_grad():
-            for pos in mask_positions:
-                # Clone and mask one token
-                masked_ids = input_ids.clone().unsqueeze(0)  # (1, seq_len)
-                original_id = masked_ids[0, pos].item()
-                masked_ids[0, pos] = tokenizer.mask_token_id
+            for batch_start in range(0, len(mask_positions), _BATCH_SIZE):
+                batch_end = min(batch_start + _BATCH_SIZE, len(mask_positions))
+                batch_ids = all_masked[batch_start:batch_end]  # (B, seq_len)
 
-                outputs = model(masked_ids)
-                logits = outputs.logits[0, pos]  # (vocab_size,)
+                outputs = model(batch_ids)
+                logits = outputs.logits  # (B, seq_len, vocab_size)
 
-                # Log-softmax to get log-probabilities
-                log_softmax = torch.log_softmax(logits, dim=-1)
-                log_prob = log_softmax[original_id].item()
-                log_probs.append(log_prob)
+                for i in range(batch_end - batch_start):
+                    pos = mask_positions[batch_start + i]
+                    orig_id = original_ids[batch_start + i]
+                    token_logits = logits[i, pos]
+                    log_softmax = torch.log_softmax(token_logits, dim=-1)
+                    log_probs.append(log_softmax[orig_id].item())
 
         avg_neg_log_prob = -sum(log_probs) / len(log_probs)
         return math.exp(avg_neg_log_prob)
