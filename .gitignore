@@ -16,3 +16,7 @@ node_modules/
 *.log
 .DS_Store
 data/fr_wordlist.txt
+
+# Project rules (local only, from playbook)
+CLAUDE.md
+.github/audit-prompt.md

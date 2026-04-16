@@ -3,9 +3,7 @@ import re
 from ocrval.domain.models import ChunkInput, HeuristicResult
 
 # Normal characters: letters, digits, whitespace, standard French punctuation
-_NORMAL_PATTERN = re.compile(
-    r"[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ0-9\s.,;:!?'\"\-/() ]"
-)
+_NORMAL_PATTERN = re.compile(r"[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ0-9\s.,;:!?'\"\-/() ]")
 _ALPHA_PATTERN = re.compile(r"[a-zA-ZàâäéèêëïîôùûüÿçœæÀÂÄÉÈÊËÏÎÔÙÛÜŸÇŒÆ]")
 
 
