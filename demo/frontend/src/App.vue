@@ -7,7 +7,6 @@ const result = ref(null)
 const loading = ref(false)
 const error = ref(null)
 const shortChunkMinWords = ref(3)
-const pass2Enabled = ref(false)
 const expandedChunks = reactive(new Set())
 
 const sampleJson = JSON.stringify({
@@ -93,9 +92,6 @@ async function validate() {
     if (shortChunkMinWords.value !== 3) {
       params.set('short_chunk_min_words', shortChunkMinWords.value)
     }
-    if (pass2Enabled.value) {
-      params.set('pass2', 'true')
-    }
     const qs = params.toString() ? `?${params.toString()}` : ''
     const resp = await fetch(`/v1/validate${qs}`, {
       method: 'POST',
@@ -178,15 +174,6 @@ function scoreBarWidth(score) {
           <span class="setting-value">{{ shortChunkMinWords }}</span>
         </div>
       </label>
-      <label class="setting">
-        <span class="setting-label">Pass 2 — perplexity (CamemBERT)</span>
-        <div class="setting-control">
-          <label class="toggle">
-            <input type="checkbox" v-model="pass2Enabled" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </label>
     </div>
 
     <button
@@ -245,6 +232,23 @@ function scoreBarWidth(score) {
           <span class="chunk-score" :style="{ color: bucketColor(chunk.bucket) }">
             {{ (chunk.chunk_score * 100).toFixed(1) }}%
           </span>
+        </div>
+      </div>
+
+      <div class="sub-scores">
+        <div class="sub-score">
+          <span class="sub-score-label">Quality</span>
+          <span class="sub-score-value">{{ (chunk.quality_score * 100).toFixed(0) }}%</span>
+          <div class="sub-score-bar-track">
+            <div class="sub-score-bar-fill" :style="{ width: scoreBarWidth(chunk.quality_score), background: chunk.quality_score >= 0.75 ? 'var(--good)' : chunk.quality_score >= 0.4 ? 'var(--uncertain)' : 'var(--bad)' }"></div>
+          </div>
+        </div>
+        <div class="sub-score">
+          <span class="sub-score-label">Usability</span>
+          <span class="sub-score-value">{{ (chunk.usability_score * 100).toFixed(0) }}%</span>
+          <div class="sub-score-bar-track">
+            <div class="sub-score-bar-fill" :style="{ width: scoreBarWidth(chunk.usability_score), background: chunk.usability_score >= 0.75 ? 'var(--good)' : chunk.usability_score >= 0.4 ? 'var(--uncertain)' : 'var(--bad)' }"></div>
+          </div>
         </div>
       </div>
 
@@ -589,6 +593,46 @@ h1 {
   font-family: var(--mono);
   font-weight: 600;
   font-size: 0.95rem;
+}
+
+.sub-scores {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+}
+.sub-score {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sub-score-label {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  min-width: 50px;
+}
+.sub-score-value {
+  font-size: 0.72rem;
+  font-weight: 600;
+  font-family: var(--mono);
+  min-width: 28px;
+  text-align: right;
+}
+.sub-score-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.sub-score-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
 }
 
 .chunk-text-section {

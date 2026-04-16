@@ -1,11 +1,9 @@
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
 from ocrval.adapters.inbound.api.schemas import ChunkScoreResponse, DocumentScoreResponse
 from ocrval.adapters.outbound.docling import DoclingAdapter
-from ocrval.config import settings
-from ocrval.domain.models import Bucket
 
 router = APIRouter(prefix="/v1")
 
@@ -23,22 +21,18 @@ def init_router(validation_service, build_service_fn=None):
 @router.post("/validate", response_model=DocumentScoreResponse)
 def validate_document(
     body: dict[str, Any],
-    short_chunk_min_words: Optional[int] = Query(None, ge=1, description="Min word count for short_chunk scorer"),
-    pass2: Optional[bool] = Query(None, description="Enable perplexity scoring (requires [llm] extra)"),
+    short_chunk_min_words: int | None = Query(
+        None, ge=1, description="Min word count for short_chunk scorer"
+    ),
 ) -> DocumentScoreResponse:
     if _default_service is None:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     # If overrides provided, rebuild service; otherwise use default
-    has_overrides = short_chunk_min_words is not None or pass2 is not None
-    if has_overrides and _build_service_fn:
-        try:
-            service = _build_service_fn(
-                short_chunk_min_words=short_chunk_min_words or settings.short_chunk_min_words,
-                pass2_enabled=pass2,
-            )
-        except ImportError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+    if short_chunk_min_words is not None and _build_service_fn:
+        service = _build_service_fn(
+            short_chunk_min_words=short_chunk_min_words,
+        )
     else:
         service = _default_service
 
@@ -46,7 +40,7 @@ def validate_document(
     try:
         document_id, chunks = adapter.extract(body)
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Invalid Docling JSON: {e}")
+        raise HTTPException(status_code=422, detail=f"Invalid Docling JSON: {e}") from e
 
     result = service.validate(document_id, chunks)
 
@@ -62,6 +56,8 @@ def validate_document(
                 text_preview=cs.text_preview,
                 text_full=cs.text_full,
                 scores=cs.scores,
+                quality_score=cs.quality_score,
+                usability_score=cs.usability_score,
                 chunk_score=cs.chunk_score,
                 bucket=cs.bucket,
             )

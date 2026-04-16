@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -15,7 +15,7 @@ class ChunkInput(BaseModel):
 
     ref: str
     label: str
-    page_no: Optional[int] = None
+    page_no: int | None = None
     text: str
 
 
@@ -38,10 +38,12 @@ class ChunkScoreResult(BaseModel):
 
     chunk_ref: str
     label: str
-    page_no: Optional[int] = None
+    page_no: int | None = None
     text_preview: str
     text_full: str = ""
     scores: dict[str, HeuristicResult]
+    quality_score: float = 0.0
+    usability_score: float = 0.0
     chunk_score: float
     bucket: Bucket
 

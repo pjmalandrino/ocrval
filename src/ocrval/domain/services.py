@@ -4,7 +4,13 @@ from ocrval.domain.models import (
     ChunkScoreResult,
     DocumentScoreResult,
 )
-from ocrval.pipeline.aggregator import aggregate_chunk, aggregate_document, classify, generate_flags
+from ocrval.pipeline.aggregator import (
+    aggregate_chunk,
+    aggregate_chunk_split,
+    aggregate_document,
+    classify,
+    generate_flags,
+)
 from ocrval.pipeline.registry import ScoringPipeline
 
 
@@ -23,9 +29,7 @@ class ValidationService:
         self._good = good_threshold
         self._bad = bad_threshold
 
-    def validate(
-        self, document_id: str, chunks: list[ChunkInput]
-    ) -> DocumentScoreResult:
+    def validate(self, document_id: str, chunks: list[ChunkInput]) -> DocumentScoreResult:
         if not chunks:
             return DocumentScoreResult(
                 document_id=document_id,
@@ -33,7 +37,7 @@ class ValidationService:
                 bucket=Bucket.BAD,
                 chunk_scores=[],
                 flags=["No text chunks extracted from document"],
-                scorer_versions={"pass": 1, "scorers": []},
+                scorer_versions={"scorers": []},
             )
 
         chunk_results = self._pipeline.run(chunks)
@@ -41,6 +45,7 @@ class ValidationService:
         chunk_responses: list[ChunkScoreResult] = []
         for cr in chunk_results:
             chunk_score = aggregate_chunk(cr.heuristics, self._weights)
+            quality_score, usability_score = aggregate_chunk_split(cr.heuristics, self._weights)
             bucket = classify(chunk_score, self._good, self._bad)
             preview = cr.chunk.text[:80] + "..." if len(cr.chunk.text) > 80 else cr.chunk.text
             chunk_responses.append(
@@ -51,6 +56,8 @@ class ValidationService:
                     text_preview=preview,
                     text_full=cr.chunk.text,
                     scores=cr.heuristics,
+                    quality_score=round(quality_score, 4),
+                    usability_score=round(usability_score, 4),
                     chunk_score=round(chunk_score, 4),
                     bucket=bucket,
                 )
@@ -58,7 +65,7 @@ class ValidationService:
 
         overall_score = aggregate_document(chunk_results, self._weights)
         overall_bucket = classify(overall_score, self._good, self._bad)
-        flags = generate_flags(chunk_results, self._weights)
+        flags = generate_flags(chunk_results, self._weights, bad_threshold=self._bad)
 
         return DocumentScoreResult(
             document_id=document_id,
@@ -67,7 +74,6 @@ class ValidationService:
             chunk_scores=chunk_responses,
             flags=flags,
             scorer_versions={
-                "pass": 2 if "perplexity" in self._pipeline.scorer_names else 1,
                 "scorers": self._pipeline.scorer_names,
             },
         )

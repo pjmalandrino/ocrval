@@ -1,5 +1,10 @@
 from ocrval.domain.models import Bucket, ChunkResult, HeuristicResult
 
+# Scorers that measure OCR text fidelity
+_QUALITY_SCORERS = {"special_char_ratio", "dictionary_ratio", "regex_artifacts"}
+# Scorers that measure chunk exploitability (downstream usability)
+_USABILITY_SCORERS = {"short_chunk", "line_repetition"}
+
 
 def aggregate_chunk(
     heuristics: dict[str, HeuristicResult],
@@ -15,6 +20,29 @@ def aggregate_chunk(
     if total_weight == 0:
         return 0.0
     return weighted_sum / total_weight
+
+
+def aggregate_chunk_split(
+    heuristics: dict[str, HeuristicResult],
+    weights: dict[str, float],
+) -> tuple[float, float]:
+    """Compute separate quality and usability sub-scores.
+
+    Returns:
+        (quality_score, usability_score) — both 0-1.
+    """
+
+    def _sub_score(scorer_names: set[str]) -> float:
+        total_w = 0.0
+        weighted_sum = 0.0
+        for name, result in heuristics.items():
+            if name in scorer_names:
+                w = weights.get(name, 0.0)
+                weighted_sum += result.score * w
+                total_w += w
+        return weighted_sum / total_w if total_w > 0 else 0.0
+
+    return _sub_score(_QUALITY_SCORERS), _sub_score(_USABILITY_SCORERS)
 
 
 def classify(score: float, good_threshold: float, bad_threshold: float) -> Bucket:
@@ -40,7 +68,11 @@ def aggregate_document(chunk_results: list[ChunkResult], weights: dict[str, floa
     return weighted_sum / total_len
 
 
-def generate_flags(chunk_results: list[ChunkResult], weights: dict[str, float]) -> list[str]:
+def generate_flags(
+    chunk_results: list[ChunkResult],
+    weights: dict[str, float],
+    bad_threshold: float = 0.40,
+) -> list[str]:
     """Generate human-readable flags for notable issues."""
     flags: list[str] = []
 
@@ -55,7 +87,8 @@ def generate_flags(chunk_results: list[ChunkResult], weights: dict[str, float]) 
     repeated_count = sum(
         1
         for cr in chunk_results
-        if "line_repetition" in cr.heuristics and cr.heuristics["line_repetition"].score < 0.5
+        if "line_repetition" in cr.heuristics
+        and cr.heuristics["line_repetition"].score < bad_threshold
     )
     if repeated_count > 0:
         flags.append(f"{repeated_count} chunk(s) detected as repeated lines")
@@ -64,19 +97,20 @@ def generate_flags(chunk_results: list[ChunkResult], weights: dict[str, float]) 
     for cr in chunk_results:
         if (
             "special_char_ratio" in cr.heuristics
-            and cr.heuristics["special_char_ratio"].score < 0.3
+            and cr.heuristics["special_char_ratio"].score < bad_threshold
             and cr.chunk.page_no is not None
         ):
             bad_pages.add(cr.chunk.page_no)
     for page in sorted(bad_pages):
         flags.append(f"High special char ratio on page {page}")
 
-    high_ppl_count = sum(
+    regex_count = sum(
         1
         for cr in chunk_results
-        if "perplexity" in cr.heuristics and cr.heuristics["perplexity"].score < 0.3
+        if "regex_artifacts" in cr.heuristics
+        and cr.heuristics["regex_artifacts"].score < bad_threshold
     )
-    if high_ppl_count > 0:
-        flags.append(f"{high_ppl_count} chunk(s) with high perplexity (linguistically incoherent)")
+    if regex_count > 0:
+        flags.append(f"{regex_count} chunk(s) with regex-detected OCR artifacts")
 
     return flags
