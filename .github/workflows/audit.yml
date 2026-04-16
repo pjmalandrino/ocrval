@@ -1,0 +1,44 @@
+name: Quality Audit
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, labeled]
+
+jobs:
+  audit:
+    if: >
+      secrets.ANTHROPIC_API_KEY != '' &&
+      (github.event.action != 'labeled' ||
+      github.event.label.name == 'run-audit')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run quality audit
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude -p "$(cat .github/audit-prompt.md)" \
+            --max-turns 30 \
+            --output-format text \
+            > audit-report.md
+
+      - name: Post audit report as PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: quality-audit
+          path: audit-report.md
