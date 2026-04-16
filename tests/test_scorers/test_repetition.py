@@ -3,9 +3,7 @@ from ocrval.scorers.repetition import RepetitionScorer
 
 
 def test_unique_chunks():
-    chunks = [
-        ChunkInput(ref=f"#/{i}", label="p", text=f"Unique text number {i}") for i in range(5)
-    ]
+    chunks = [ChunkInput(ref=f"#/{i}", label="p", text=f"Unique text number {i}") for i in range(5)]
     scorer = RepetitionScorer(min_occurrences=3)
     scorer.prepare(chunks)
 
@@ -16,9 +14,7 @@ def test_unique_chunks():
 
 def test_repeated_chunks():
     repeated = ChunkInput(ref="#/0", label="p", text="Page 1 of 10")
-    chunks = [
-        ChunkInput(ref=f"#/{i}", label="p", text="Page 1 of 10") for i in range(5)
-    ]
+    chunks = [ChunkInput(ref=f"#/{i}", label="p", text="Page 1 of 10") for i in range(5)]
     scorer = RepetitionScorer(min_occurrences=3)
     scorer.prepare(chunks)
 

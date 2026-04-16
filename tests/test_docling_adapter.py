@@ -11,7 +11,7 @@ def test_extract_texts(sample_docling_json):
 def test_extract_table_text(sample_docling_json):
     adapter = DoclingAdapter()
     _, chunks = adapter.extract(sample_docling_json)
-    table_chunk = [c for c in chunks if c.label == "table"][0]
+    table_chunk = next(c for c in chunks if c.label == "table")
     assert "Article" in table_chunk.text
     assert "1200" in table_chunk.text
 
