@@ -19,12 +19,17 @@ class ScoringPipeline:
             if hasattr(scorer, "prepare") and callable(scorer.prepare):
                 scorer.prepare(chunks)
 
-    def run(self, chunks: list[ChunkInput]) -> list[ChunkResult]:
+    def run(
+        self,
+        chunks: list[ChunkInput],
+        exclude: set[str] | None = None,
+    ) -> list[ChunkResult]:
         self.prepare(chunks)
         results: list[ChunkResult] = []
+        active_scorers = [s for s in self._scorers if not exclude or s.name not in exclude]
         for chunk in chunks:
             heuristics = {}
-            for scorer in self._scorers:
+            for scorer in active_scorers:
                 heuristics[scorer.name] = scorer.score(chunk)
             results.append(ChunkResult(chunk=chunk, heuristics=heuristics))
         return results
