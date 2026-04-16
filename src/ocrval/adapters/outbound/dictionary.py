@@ -28,8 +28,17 @@ def _download_wordlist(lang: str) -> Path:
 
     url = _LANGUAGE_SOURCES[lang]
     logger.info("Downloading '%s' wordlist from %s ...", lang, url)
-    urllib.request.urlretrieve(url, cache_file)
-    logger.info("Cached wordlist at %s", cache_file)
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            data = response.read()
+        if len(data) < 100:
+            raise RuntimeError(f"Downloaded wordlist is suspiciously small ({len(data)} bytes)")
+        cache_file.write_bytes(data)
+    except Exception:
+        # Clean up partial/corrupt cache file
+        cache_file.unlink(missing_ok=True)
+        raise
+    logger.info("Cached wordlist at %s (%d bytes)", cache_file, len(data))
     return cache_file
 
 
@@ -64,7 +73,9 @@ def load_dictionary(
         words = _parse_wordlist(cache_file)
 
     if custom_words:
-        words.update(unicodedata.normalize("NFC", w.strip().lower()) for w in custom_words if w.strip())
+        words.update(
+            unicodedata.normalize("NFC", w.strip().lower()) for w in custom_words if w.strip()
+        )
 
     return words
 
