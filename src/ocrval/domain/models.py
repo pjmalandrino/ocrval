@@ -1,10 +1,10 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel
 
 
-class Bucket(str, Enum):
+class Bucket(StrEnum):
     GOOD = "good"
     UNCERTAIN = "uncertain"
     BAD = "bad"
