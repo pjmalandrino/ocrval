@@ -3,11 +3,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ScorerWeights(BaseModel):
-    special_char_ratio: float = 0.25
-    dictionary_ratio: float = 0.35
-    short_chunk: float = 0.20
+    special_char_ratio: float = 0.20
+    dictionary_ratio: float = 0.30
+    regex_artifacts: float = 0.15
+    short_chunk: float = 0.15
     line_repetition: float = 0.20
-    perplexity: float = 0.30
 
 
 class Settings(BaseSettings):
@@ -33,11 +33,9 @@ class Settings(BaseSettings):
     lang: str | None = "fr"
     custom_words: list[str] | None = None
 
-    # Pass 2 — perplexity (requires [llm] extra)
-    pass2_enabled: bool = False
-    perplexity_model: str = "camembert-base"
-    perplexity_ceiling: float = 100.0
-    perplexity_floor: float = 10.0
+    # Regex artifact detection
+    regex_artifact_threshold: float = 0.10
+    custom_regex_patterns: list[list[str]] | None = None  # [["name", "regex"], ...]
 
 
 settings = Settings()
